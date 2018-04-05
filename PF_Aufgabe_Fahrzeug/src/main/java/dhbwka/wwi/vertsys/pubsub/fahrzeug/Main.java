@@ -9,6 +9,9 @@
  */
 package dhbwka.wwi.vertsys.pubsub.fahrzeug;
 
+import org.eclipse.paho.client.mqttv3.MqttClient;
+import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
+
 import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -60,9 +63,18 @@ public class Main {
         // Die Nachricht muss dem MqttConnectOptions-Objekt übergeben werden
         // und soll an das Topic Utils.MQTT_TOPIC_NAME gesendet werden.
 
+        StatusMessage statusMsg = new StatusMessage();
+        statusMsg.vehicleId = vehicleId;
+        statusMsg.type = StatusType.CONNECTION_LOST;
+        statusMsg.message = "Verbindung verloren";
 
+        MqttConnectOptions options = new MqttConnectOptions();
+        options.setCleanSession(true);
+        options.setWill(Utils.MQTT_TOPIC_NAME, statusMsg.toJson(),2,true);
         
         // TODO: Verbindung zum MQTT-Broker herstellen.
+        MqttClient client = new MqttClient(mqttAddress,vehicleId);
+        client.connect(options);
 
         // TODO: Statusmeldung mit "type" = "StatusType.VEHICLE_READY" senden.
         // Die Nachricht soll soll an das Topic Utils.MQTT_TOPIC_NAME gesendet
@@ -85,6 +97,7 @@ public class Main {
         //
         // Anschließend die Verbindung trennen und den oben gestarteten Thread
         // beenden, falls es kein Daemon-Thread ist.
+
     }
 
     /**
