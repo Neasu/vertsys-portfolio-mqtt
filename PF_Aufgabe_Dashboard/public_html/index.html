@@ -91,7 +91,7 @@ Creative Commons Namensnennung 4.0 International Lizenz.
         </div>
 
         <script>
-            alert("Die Refernzdokumentation für Paho-JavaScript gibt es hier:\n\nhttp://www.eclipse.org/paho/files/jsdoc/Paho.MQTT.Client.html");
+            //alert("Die Refernzdokumentation für Paho-JavaScript gibt es hier:\n\nhttp://www.eclipse.org/paho/files/jsdoc/Paho.MQTT.Client.html");
 
             /**
              * Hauptklasse für unser schönes, kleines Dashboard. :-)
@@ -173,7 +173,9 @@ Creative Commons Namensnennung 4.0 International Lizenz.
                             })
                     };
 
-                    // TODO: Verbindung herstellen
+                    // TODO: Verbindung
+                    this.mqttClient.connect(connectOptions);
+
                 }
 
                 /**
@@ -181,6 +183,9 @@ Creative Commons Namensnennung 4.0 International Lizenz.
                  */
                 disconnect() {
                     // TODO: Verbindung trennen
+                    if(this.mqttClient != null){
+                        this.mqttClient.disconnect();
+                    }
                 }
 
                 /**
@@ -219,6 +224,7 @@ Creative Commons Namensnennung 4.0 International Lizenz.
                 onMessageArrived(mqttMessage) {
                     let message = JSON.parse(mqttMessage.payloadString);
 
+                    console.log(message);
                     // TODO: Anzeige aktualisieren
                     //
                     // Hierfür muss der im JSON mitgesendete Nachrichtentyp

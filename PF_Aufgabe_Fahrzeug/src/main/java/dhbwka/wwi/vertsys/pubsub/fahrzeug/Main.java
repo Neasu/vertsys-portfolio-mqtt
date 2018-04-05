@@ -11,6 +11,7 @@ package dhbwka.wwi.vertsys.pubsub.fahrzeug;
 
 import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
+import org.eclipse.paho.client.mqttv3.MqttMessage;
 
 import java.io.*;
 import java.util.ArrayList;
@@ -63,14 +64,14 @@ public class Main {
         // Die Nachricht muss dem MqttConnectOptions-Objekt übergeben werden
         // und soll an das Topic Utils.MQTT_TOPIC_NAME gesendet werden.
 
-        StatusMessage statusMsg = new StatusMessage();
-        statusMsg.vehicleId = vehicleId;
-        statusMsg.type = StatusType.CONNECTION_LOST;
-        statusMsg.message = "Verbindung verloren";
+        StatusMessage lastWill = new StatusMessage();
+        lastWill.vehicleId = vehicleId;
+        lastWill.type = StatusType.CONNECTION_LOST;
+        lastWill.message = "Verbindung verloren";
 
         MqttConnectOptions options = new MqttConnectOptions();
         options.setCleanSession(true);
-        options.setWill(Utils.MQTT_TOPIC_NAME, statusMsg.toJson(),2,true);
+        options.setWill(Utils.MQTT_TOPIC_NAME, lastWill.toJson(),2,false);
         
         // TODO: Verbindung zum MQTT-Broker herstellen.
         MqttClient client = new MqttClient(mqttAddress,vehicleId);
@@ -79,7 +80,18 @@ public class Main {
         // TODO: Statusmeldung mit "type" = "StatusType.VEHICLE_READY" senden.
         // Die Nachricht soll soll an das Topic Utils.MQTT_TOPIC_NAME gesendet
         // werden.
-        
+
+        StatusMessage readyStatusMsg = new StatusMessage();
+        readyStatusMsg.vehicleId = vehicleId;
+        readyStatusMsg.type = StatusType.VEHICLE_READY;
+        readyStatusMsg.message = "Fahrzeug bereit";
+
+        MqttMessage readyMsg = new MqttMessage();
+        readyMsg.setQos(2);
+        readyMsg.setPayload(readyStatusMsg.toJson());
+
+        client.publish(Utils.MQTT_TOPIC_NAME, readyMsg);
+
         // TODO: Thread starten, der jede Sekunde die aktuellen Sensorwerte
         // des Fahrzeugs ermittelt und verschickt. Die Sensordaten sollen
         // an das Topic Utils.MQTT_TOPIC_NAME + "/" + vehicleId gesendet werden.
