@@ -9,8 +9,7 @@
  */
 package dhbwka.wwi.vertsys.pubsub.fahrzeug;
 
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -60,6 +59,8 @@ public class Main {
         //
         // Die Nachricht muss dem MqttConnectOptions-Objekt übergeben werden
         // und soll an das Topic Utils.MQTT_TOPIC_NAME gesendet werden.
+
+
         
         // TODO: Verbindung zum MQTT-Broker herstellen.
 
@@ -109,7 +110,28 @@ public class Main {
     public static List<WGS84> parseItnFile(File file) throws IOException {
         List<WGS84> waypoints = new ArrayList<>();
 
-        // TODO: Übergebene Datei parsen und Liste "waypoints" damit füllen
+        BufferedReader fromFile = new BufferedReader(new InputStreamReader( new FileInputStream(file)));
+        String line;
+
+        while( (line = fromFile.readLine()) != null){
+            double latitude, longitude;
+            String[] fields = line.split("\\|");
+
+            if(fields.length < 2){
+                continue;
+            }
+
+            try {
+                longitude = Integer.parseInt(fields[0]) / 100_000.0;
+                latitude = Integer.parseInt(fields[1]) / 100_000.0;
+            }catch(NumberFormatException ex){
+                Utils.logException(ex);
+                continue;
+            }
+
+            WGS84 waypoint = new WGS84(latitude,longitude);
+            waypoints.add(waypoint);
+        }
 
         return waypoints;
     }
