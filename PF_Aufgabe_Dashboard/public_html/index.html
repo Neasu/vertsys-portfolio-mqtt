@@ -183,7 +183,7 @@ Creative Commons Namensnennung 4.0 International Lizenz.
                  */
                 disconnect() {
                     // TODO: Verbindung trennen
-                    if(this.mqttClient != null){
+                    if (this.mqttClient != null) {
                         this.mqttClient.disconnect();
                     }
                 }
@@ -233,6 +233,22 @@ Creative Commons Namensnennung 4.0 International Lizenz.
                     // VEHICLE_READY: this.addVehicle(message) aufrufen
                     // CONNECTION_LOST: this.removeVehicle(message) aufrufen
                     // SENSOR_DATA: this.updateVehicle(message) aufrufen
+
+                    switch (message.type) {
+                        case "VEHICLE_READY":
+                            this.addVehicle(message);
+                            break;
+                        case "SENSOR_DATA":
+                            this.updateVehicle(message);
+                            break;
+                        case "CONNECTION_LOST":
+                            this.removeVehicle(message);
+                            break;
+                        default:
+                            console.log("unknown message type: " + message.type);
+                            break;
+                    }
+
                 }
 
                 /**

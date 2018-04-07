@@ -14,8 +14,12 @@ import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
+import org.eclipse.paho.client.mqttv3.MqttException;
 
 /**
  * Hauptklasse unseres kleinen Progrämmchens.
@@ -27,7 +31,18 @@ import java.util.List;
  */
 public class Main {
 
+    MqttClient client;
+
     public static void main(String[] args) throws Exception {
+        Main main = new Main();
+        try {
+            main.run();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void run() throws Exception {
         // Fahrzeug-ID abfragen
         String vehicleId = Utils.askInput("Beliebige Fahrzeug-ID", "postauto");
 
@@ -49,7 +64,7 @@ public class Main {
 
         System.out.println();
         int index = Integer.parseInt(Utils.askInput("Zu fahrende Strecke", "0"));
-        
+
         // TODO: Methode parseItnFile() unten ausprogrammieren
         List<WGS84> waypoints = parseItnFile(new File(workdir, waypointFiles[index]));
 
@@ -63,7 +78,6 @@ public class Main {
         //
         // Die Nachricht muss dem MqttConnectOptions-Objekt übergeben werden
         // und soll an das Topic Utils.MQTT_TOPIC_NAME gesendet werden.
-
         StatusMessage lastWill = new StatusMessage();
         lastWill.vehicleId = vehicleId;
         lastWill.type = StatusType.CONNECTION_LOST;
@@ -71,26 +85,21 @@ public class Main {
 
         MqttConnectOptions options = new MqttConnectOptions();
         options.setCleanSession(true);
-        options.setWill(Utils.MQTT_TOPIC_NAME, lastWill.toJson(),2,false);
-        
+        options.setWill(Utils.MQTT_TOPIC_NAME, lastWill.toJson(), 2, false);
+
         // TODO: Verbindung zum MQTT-Broker herstellen.
-        MqttClient client = new MqttClient(mqttAddress,vehicleId);
+        client = new MqttClient(mqttAddress, vehicleId);
         client.connect(options);
 
         // TODO: Statusmeldung mit "type" = "StatusType.VEHICLE_READY" senden.
         // Die Nachricht soll soll an das Topic Utils.MQTT_TOPIC_NAME gesendet
         // werden.
-
         StatusMessage readyStatusMsg = new StatusMessage();
         readyStatusMsg.vehicleId = vehicleId;
         readyStatusMsg.type = StatusType.VEHICLE_READY;
         readyStatusMsg.message = "Fahrzeug bereit";
-
-        MqttMessage readyMsg = new MqttMessage();
-        readyMsg.setQos(2);
-        readyMsg.setPayload(readyStatusMsg.toJson());
-
-        client.publish(Utils.MQTT_TOPIC_NAME, readyMsg);
+        
+        send(Utils.MQTT_TOPIC_NAME, readyStatusMsg.toJson(), 2);
 
         // TODO: Thread starten, der jede Sekunde die aktuellen Sensorwerte
         // des Fahrzeugs ermittelt und verschickt. Die Sensordaten sollen
@@ -98,18 +107,37 @@ public class Main {
         Vehicle vehicle = new Vehicle(vehicleId, waypoints);
         vehicle.startVehicle();
 
+        TimerTask task = new TimerTask() {
+            @Override
+            public void run() {
+                try {
+                    send(Utils.MQTT_TOPIC_NAME + "/" + vehicleId, vehicle.getSensorData());
+                } catch (Exception ex) {
+                    Utils.logException(ex);
+                }
+            }
+        };
+
+        Timer timer = new Timer(true);
+        timer.scheduleAtFixedRate(task, 0, 1000);
+
         // Warten, bis das Programm beendet werden soll
         Utils.fromKeyboard.readLine();
 
         vehicle.stopVehicle();
-        
+
         // TODO: Oben vorbereitete LastWill-Nachricht hier manuell versenden,
         // da sie bei einem regulären Verbindungsende nicht automatisch
         // verschickt wird.
         //
         // Anschließend die Verbindung trennen und den oben gestarteten Thread
         // beenden, falls es kein Daemon-Thread ist.
-
+        
+        timer.cancel();
+        
+        send(Utils.MQTT_TOPIC_NAME, lastWill.toJson(), 2);
+        
+        client.disconnect();
     }
 
     /**
@@ -135,30 +163,46 @@ public class Main {
     public static List<WGS84> parseItnFile(File file) throws IOException {
         List<WGS84> waypoints = new ArrayList<>();
 
-        BufferedReader fromFile = new BufferedReader(new InputStreamReader( new FileInputStream(file)));
+        BufferedReader fromFile = new BufferedReader(new InputStreamReader(new FileInputStream(file)));
         String line;
 
-        while( (line = fromFile.readLine()) != null){
+        while ((line = fromFile.readLine()) != null) {
             double latitude, longitude;
             String[] fields = line.split("\\|");
 
-            if(fields.length < 2){
+            if (fields.length < 2) {
                 continue;
             }
 
             try {
                 longitude = Integer.parseInt(fields[0]) / 100_000.0;
                 latitude = Integer.parseInt(fields[1]) / 100_000.0;
-            }catch(NumberFormatException ex){
+            } catch (NumberFormatException ex) {
                 Utils.logException(ex);
                 continue;
             }
 
-            WGS84 waypoint = new WGS84(latitude,longitude);
+            WGS84 waypoint = new WGS84(latitude, longitude);
             waypoints.add(waypoint);
         }
 
         return waypoints;
+    }
+
+    private void send(String topic, SensorMessage sensorMessage) throws MqttException {
+        if (sensorMessage != null) {
+            send(topic, sensorMessage.toJson(), 0);
+        }
+    }
+    
+    private void send(String topic, byte[] json, int qos) throws MqttException {
+        if (topic != null && json != null && (qos >= 0 && qos <= 2) && client != null) {
+            System.out.println(topic + " -> " + new String(json, StandardCharsets.UTF_8));
+
+            MqttMessage mqttMessage = new MqttMessage(json);
+            mqttMessage.setQos(qos);
+            client.publish(topic, mqttMessage);
+        }
     }
 
 }
