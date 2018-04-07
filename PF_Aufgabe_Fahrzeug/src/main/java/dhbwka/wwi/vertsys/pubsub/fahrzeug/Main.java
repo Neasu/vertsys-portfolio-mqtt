@@ -195,7 +195,7 @@ public class Main {
     private void send(String topic, SensorMessage sensorMessage) throws MqttException {
         if (topic != null && sensorMessage != null && client != null) {
             byte[] json = sensorMessage.toJson();
-            System.out.println("→ " + new String(json, StandardCharsets.UTF_8));
+            System.out.println("-> " + new String(json, StandardCharsets.UTF_8));
 
             MqttMessage mqttMessage = new MqttMessage(json);
             mqttMessage.setQos(0);
