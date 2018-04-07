@@ -98,12 +98,8 @@ public class Main {
         readyStatusMsg.vehicleId = vehicleId;
         readyStatusMsg.type = StatusType.VEHICLE_READY;
         readyStatusMsg.message = "Fahrzeug bereit";
-
-        MqttMessage readyMsg = new MqttMessage();
-        readyMsg.setQos(2);
-        readyMsg.setPayload(readyStatusMsg.toJson());
-
-        client.publish(Utils.MQTT_TOPIC_NAME, readyMsg);
+        
+        send(Utils.MQTT_TOPIC_NAME, readyStatusMsg.toJson(), 2);
 
         // TODO: Thread starten, der jede Sekunde die aktuellen Sensorwerte
         // des Fahrzeugs ermittelt und verschickt. Die Sensordaten sollen
@@ -139,9 +135,8 @@ public class Main {
         
         timer.cancel();
         
-        MqttMessage mqttMessage = new MqttMessage(lastWill.toJson());
-        mqttMessage.setQos(2);
-        client.publish(Utils.MQTT_TOPIC_NAME, mqttMessage);
+        send(Utils.MQTT_TOPIC_NAME, lastWill.toJson(), 2);
+        
         client.disconnect();
     }
 
@@ -195,12 +190,17 @@ public class Main {
     }
 
     private void send(String topic, SensorMessage sensorMessage) throws MqttException {
-        if (topic != null && sensorMessage != null && client != null) {
-            byte[] json = sensorMessage.toJson();
-            System.out.println("-> " + new String(json, StandardCharsets.UTF_8));
+        if (sensorMessage != null) {
+            send(topic, sensorMessage.toJson(), 0);
+        }
+    }
+    
+    private void send(String topic, byte[] json, int qos) throws MqttException {
+        if (topic != null && json != null && (qos >= 0 && qos <= 2) && client != null) {
+            System.out.println(topic + " -> " + new String(json, StandardCharsets.UTF_8));
 
             MqttMessage mqttMessage = new MqttMessage(json);
-            mqttMessage.setQos(0);
+            mqttMessage.setQos(qos);
             client.publish(topic, mqttMessage);
         }
     }
