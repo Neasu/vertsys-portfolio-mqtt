@@ -14,8 +14,12 @@ import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
+import org.eclipse.paho.client.mqttv3.MqttException;
 
 /**
  * Hauptklasse unseres kleinen Progrämmchens.
@@ -26,8 +30,19 @@ import java.util.List;
  * Goolge Maps eine Nachkommastelle mehr, als das ITN-Format erlaubt. :-)
  */
 public class Main {
+    
+    MqttClient client;
 
     public static void main(String[] args) throws Exception {
+        Main main = new Main();
+        try {
+            main.run();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+    
+    private void run() throws Exception {
         // Fahrzeug-ID abfragen
         String vehicleId = Utils.askInput("Beliebige Fahrzeug-ID", "postauto");
 
@@ -74,7 +89,7 @@ public class Main {
         options.setWill(Utils.MQTT_TOPIC_NAME, lastWill.toJson(),2,false);
         
         // TODO: Verbindung zum MQTT-Broker herstellen.
-        MqttClient client = new MqttClient(mqttAddress,vehicleId);
+        client = new MqttClient(mqttAddress,vehicleId);
         client.connect(options);
 
         // TODO: Statusmeldung mit "type" = "StatusType.VEHICLE_READY" senden.
@@ -97,6 +112,20 @@ public class Main {
         // an das Topic Utils.MQTT_TOPIC_NAME + "/" + vehicleId gesendet werden.
         Vehicle vehicle = new Vehicle(vehicleId, waypoints);
         vehicle.startVehicle();
+        
+        TimerTask task = new TimerTask() {
+                @Override
+                public void run() {
+                    try {
+                        send(Utils.MQTT_TOPIC_NAME + "/" + vehicleId, vehicle.getSensorData());
+                    } catch (Exception ex) {
+                        Utils.logException(ex);
+                    }
+                }
+            };
+            
+            Timer timer = new Timer(true);
+            timer.scheduleAtFixedRate(task, 0, 1000);
 
         // Warten, bis das Programm beendet werden soll
         Utils.fromKeyboard.readLine();
@@ -109,7 +138,6 @@ public class Main {
         //
         // Anschließend die Verbindung trennen und den oben gestarteten Thread
         // beenden, falls es kein Daemon-Thread ist.
-
     }
 
     /**
@@ -161,4 +189,15 @@ public class Main {
         return waypoints;
     }
 
+    private void send(String topic, SensorMessage sensorMessage) throws MqttException {
+        if (topic != null && sensorMessage != null && client != null) {
+            byte[] json = sensorMessage.toJson();
+            System.out.println("→ " + new String(json, StandardCharsets.UTF_8));
+
+            MqttMessage mqttMessage = new MqttMessage(json);
+            mqttMessage.setQos(0);
+            client.publish(topic, mqttMessage);
+        }
+    }
+    
 }
