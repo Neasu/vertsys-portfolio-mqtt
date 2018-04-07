@@ -222,7 +222,7 @@ public class Vehicle {
                 }
 
                 // DEBUG
-                System.out.println("Neues Ziel km/h: " + this.targetKmh);
+                System.out.println("Neue Zielgeschwindigkeit: " + this.targetKmh);
             }
 
             // Beschleunigen, falls das Auto zu langsam fährt
