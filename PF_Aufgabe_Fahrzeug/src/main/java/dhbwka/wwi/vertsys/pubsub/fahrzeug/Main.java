@@ -30,7 +30,7 @@ import org.eclipse.paho.client.mqttv3.MqttException;
  * Goolge Maps eine Nachkommastelle mehr, als das ITN-Format erlaubt. :-)
  */
 public class Main {
-    
+
     MqttClient client;
 
     public static void main(String[] args) throws Exception {
@@ -41,7 +41,7 @@ public class Main {
             e.printStackTrace();
         }
     }
-    
+
     private void run() throws Exception {
         // Fahrzeug-ID abfragen
         String vehicleId = Utils.askInput("Beliebige Fahrzeug-ID", "postauto");
@@ -64,7 +64,7 @@ public class Main {
 
         System.out.println();
         int index = Integer.parseInt(Utils.askInput("Zu fahrende Strecke", "0"));
-        
+
         // TODO: Methode parseItnFile() unten ausprogrammieren
         List<WGS84> waypoints = parseItnFile(new File(workdir, waypointFiles[index]));
 
@@ -78,7 +78,6 @@ public class Main {
         //
         // Die Nachricht muss dem MqttConnectOptions-Objekt übergeben werden
         // und soll an das Topic Utils.MQTT_TOPIC_NAME gesendet werden.
-
         StatusMessage lastWill = new StatusMessage();
         lastWill.vehicleId = vehicleId;
         lastWill.type = StatusType.CONNECTION_LOST;
@@ -86,16 +85,15 @@ public class Main {
 
         MqttConnectOptions options = new MqttConnectOptions();
         options.setCleanSession(true);
-        options.setWill(Utils.MQTT_TOPIC_NAME, lastWill.toJson(),2,false);
-        
+        options.setWill(Utils.MQTT_TOPIC_NAME, lastWill.toJson(), 2, false);
+
         // TODO: Verbindung zum MQTT-Broker herstellen.
-        client = new MqttClient(mqttAddress,vehicleId);
+        client = new MqttClient(mqttAddress, vehicleId);
         client.connect(options);
 
         // TODO: Statusmeldung mit "type" = "StatusType.VEHICLE_READY" senden.
         // Die Nachricht soll soll an das Topic Utils.MQTT_TOPIC_NAME gesendet
         // werden.
-
         StatusMessage readyStatusMsg = new StatusMessage();
         readyStatusMsg.vehicleId = vehicleId;
         readyStatusMsg.type = StatusType.VEHICLE_READY;
@@ -112,32 +110,37 @@ public class Main {
         // an das Topic Utils.MQTT_TOPIC_NAME + "/" + vehicleId gesendet werden.
         Vehicle vehicle = new Vehicle(vehicleId, waypoints);
         vehicle.startVehicle();
-        
+
         TimerTask task = new TimerTask() {
-                @Override
-                public void run() {
-                    try {
-                        send(Utils.MQTT_TOPIC_NAME + "/" + vehicleId, vehicle.getSensorData());
-                    } catch (Exception ex) {
-                        Utils.logException(ex);
-                    }
+            @Override
+            public void run() {
+                try {
+                    send(Utils.MQTT_TOPIC_NAME + "/" + vehicleId, vehicle.getSensorData());
+                } catch (Exception ex) {
+                    Utils.logException(ex);
                 }
-            };
-            
-            Timer timer = new Timer(true);
-            timer.scheduleAtFixedRate(task, 0, 1000);
+            }
+        };
+
+        Timer timer = new Timer(true);
+        timer.scheduleAtFixedRate(task, 0, 1000);
 
         // Warten, bis das Programm beendet werden soll
         Utils.fromKeyboard.readLine();
 
         vehicle.stopVehicle();
-        
+
         // TODO: Oben vorbereitete LastWill-Nachricht hier manuell versenden,
         // da sie bei einem regulären Verbindungsende nicht automatisch
         // verschickt wird.
         //
         // Anschließend die Verbindung trennen und den oben gestarteten Thread
         // beenden, falls es kein Daemon-Thread ist.
+        
+        MqttMessage mqttMessage = new MqttMessage(lastWill.toJson());
+        mqttMessage.setQos(2);
+        client.publish(Utils.MQTT_TOPIC_NAME, mqttMessage);
+        client.disconnect();
     }
 
     /**
@@ -163,26 +166,26 @@ public class Main {
     public static List<WGS84> parseItnFile(File file) throws IOException {
         List<WGS84> waypoints = new ArrayList<>();
 
-        BufferedReader fromFile = new BufferedReader(new InputStreamReader( new FileInputStream(file)));
+        BufferedReader fromFile = new BufferedReader(new InputStreamReader(new FileInputStream(file)));
         String line;
 
-        while( (line = fromFile.readLine()) != null){
+        while ((line = fromFile.readLine()) != null) {
             double latitude, longitude;
             String[] fields = line.split("\\|");
 
-            if(fields.length < 2){
+            if (fields.length < 2) {
                 continue;
             }
 
             try {
                 longitude = Integer.parseInt(fields[0]) / 100_000.0;
                 latitude = Integer.parseInt(fields[1]) / 100_000.0;
-            }catch(NumberFormatException ex){
+            } catch (NumberFormatException ex) {
                 Utils.logException(ex);
                 continue;
             }
 
-            WGS84 waypoint = new WGS84(latitude,longitude);
+            WGS84 waypoint = new WGS84(latitude, longitude);
             waypoints.add(waypoint);
         }
 
@@ -199,5 +202,5 @@ public class Main {
             client.publish(topic, mqttMessage);
         }
     }
-    
+
 }
