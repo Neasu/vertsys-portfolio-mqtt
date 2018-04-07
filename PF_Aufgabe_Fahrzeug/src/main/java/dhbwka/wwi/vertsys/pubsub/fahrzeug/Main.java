@@ -137,6 +137,8 @@ public class Main {
         // Anschließend die Verbindung trennen und den oben gestarteten Thread
         // beenden, falls es kein Daemon-Thread ist.
         
+        timer.cancel();
+        
         MqttMessage mqttMessage = new MqttMessage(lastWill.toJson());
         mqttMessage.setQos(2);
         client.publish(Utils.MQTT_TOPIC_NAME, mqttMessage);
